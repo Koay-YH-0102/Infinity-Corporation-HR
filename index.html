@@ -1749,18 +1749,18 @@ tbody tr:hover td { background: var(--surface2); }
         <div class="form-group full">
           <label>Time Zone</label>
           <select id="ev-timezone">
-            <option value="UTC">UTC</option>
-            <option value="America/New_York">Eastern Time (US & Canada)</option>
-            <option value="America/Chicago">Central Time (US & Canada)</option>
-            <option value="America/Denver">Mountain Time (US & Canada)</option>
-            <option value="America/Los_Angeles">Pacific Time (US & Canada)</option>
-            <option value="Europe/London">London</option>
-            <option value="Europe/Paris">Paris / Berlin</option>
-            <option value="Asia/Dubai">Dubai</option>
-            <option value="Asia/Kolkata">India</option>
-            <option value="Asia/Singapore" selected>Singapore / Malaysia / HK</option>
-            <option value="Asia/Tokyo">Tokyo</option>
-            <option value="Australia/Sydney">Sydney</option>
+            <option value="UTC">(GMT+0) UTC</option>
+            <option value="America/New_York">(GMT-5) Eastern Time (US & Canada)</option>
+            <option value="America/Chicago">(GMT-6) Central Time (US & Canada)</option>
+            <option value="America/Denver">(GMT-7) Mountain Time (US & Canada)</option>
+            <option value="America/Los_Angeles">(GMT-8) Pacific Time (US & Canada)</option>
+            <option value="Europe/London">(GMT+0) London</option>
+            <option value="Europe/Paris">(GMT+1) Paris / Berlin</option>
+            <option value="Asia/Dubai">(GMT+4) Dubai</option>
+            <option value="Asia/Kolkata">(GMT+5:30) India</option>
+            <option value="Asia/Singapore" selected>(GMT+8) Singapore / Malaysia / HK</option>
+            <option value="Asia/Tokyo">(GMT+9) Tokyo</option>
+            <option value="Australia/Sydney">(GMT+10) Sydney</option>
           </select>
         </div>
 
@@ -2953,6 +2953,21 @@ function makeCell(dateStr, dayNum, otherMonth, events, leaves, attendance, today
   return cell;
 }
 
+function getTzOffsetStr(timezone, dateStr) {
+  try {
+    const date = dateStr ? new Date(dateStr) : new Date();
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone || 'UTC',
+      timeZoneName: 'shortOffset'
+    });
+    const parts = formatter.formatToParts(date);
+    const tzPart = parts.find(p => p.type === 'timeZoneName');
+    return tzPart ? tzPart.value : (timezone || 'UTC');
+  } catch(e) {
+    return timezone || 'UTC';
+  }
+}
+
 function showCalDetail(dateStr, evs, lvs, att) {
   const panel = document.getElementById('cal-detail-panel');
   const level = ROLE_LEVELS[localStorage.getItem('role') || 'Employee'] || 1;
@@ -2969,8 +2984,9 @@ function showCalDetail(dateStr, evs, lvs, att) {
         ? `<button type="button" class="btn btn-ghost btn-xs ml-auto" data-edit-event="${escapeAttr(e.id)}">Edit</button>`
         : '';
         
+      const tzDisplay = getTzOffsetStr(e.timezone, e.start_time);
       const timeStr = e.start_time && e.start_time.length > 10 
-        ? e.start_time.slice(11, 16) + ' - ' + e.end_time.slice(11, 16) + ' (' + (e.timezone || 'Local') + ')'
+        ? e.start_time.slice(11, 16) + ' - ' + e.end_time.slice(11, 16) + ' (' + tzDisplay + ')'
         : 'All Day';
 
       html += `<div class="cal-detail-item">
