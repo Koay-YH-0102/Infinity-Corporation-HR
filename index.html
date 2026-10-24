@@ -1745,8 +1745,35 @@ tbody tr:hover td { background: var(--surface2); }
       <input type="hidden" id="ev-id">
       <div class="form-row">
         <div class="form-group full"><label>Event Title</label><input type="text" id="ev-title" placeholder="e.g. Company Town Hall"></div>
-        <div class="form-group"><label>Date</label><input type="date" id="ev-date"></div>
-        <div class="form-group"><label>Type</label>
+        
+        <div class="form-group full">
+          <label>Time Zone</label>
+          <select id="ev-timezone">
+            <option value="UTC">UTC</option>
+            <option value="America/New_York">Eastern Time (US & Canada)</option>
+            <option value="America/Chicago">Central Time (US & Canada)</option>
+            <option value="America/Denver">Mountain Time (US & Canada)</option>
+            <option value="America/Los_Angeles">Pacific Time (US & Canada)</option>
+            <option value="Europe/London">London</option>
+            <option value="Europe/Paris">Paris / Berlin</option>
+            <option value="Asia/Dubai">Dubai</option>
+            <option value="Asia/Kolkata">India</option>
+            <option value="Asia/Singapore" selected>Singapore / Malaysia / HK</option>
+            <option value="Asia/Tokyo">Tokyo</option>
+            <option value="Australia/Sydney">Sydney</option>
+          </select>
+        </div>
+
+        <div class="form-group"><label>Start Date</label><input type="date" id="ev-start-date"></div>
+        <div class="form-group"><label>Start Time</label><input type="time" id="ev-start-time"></div>
+        
+        <div class="form-group"><label>End Date</label><input type="date" id="ev-end-date"></div>
+        <div class="form-group"><label>End Time</label><input type="time" id="ev-end-time"></div>
+
+        <div class="form-group full"><label>Location (Optional)</label><input type="text" id="ev-location" placeholder="e.g. Meeting Room 1 or Zoom"></div>
+        <div class="form-group full"><label>Meeting Link (Optional)</label><input type="url" id="ev-link" placeholder="https://zoom.us/j/..."></div>
+
+        <div class="form-group full"><label>Type</label>
           <select id="ev-type">
             <option value="company">Company Event</option>
             <option value="holiday">Public Holiday</option>
@@ -2941,11 +2968,19 @@ function showCalDetail(dateStr, evs, lvs, att) {
       const editBtn = level >= 3
         ? `<button type="button" class="btn btn-ghost btn-xs ml-auto" data-edit-event="${escapeAttr(e.id)}">Edit</button>`
         : '';
+        
+      const timeStr = e.start_time && e.start_time.length > 10 
+        ? e.start_time.slice(11, 16) + ' - ' + e.end_time.slice(11, 16) + ' (' + (e.timezone || 'Local') + ')'
+        : 'All Day';
+
       html += `<div class="cal-detail-item">
         <div class="cal-detail-icon" style="background:var(--accent-light);">📅</div>
         <div class="flex-col flex" style="flex:1;">
           <strong>${escapeHTML(e.title)}</strong>
-          <div class="text-muted text-xs capitalize">${escapeHTML(e.type || 'Event')}${e.description ? ' · ' + escapeHTML(e.description) : ''}</div>
+          <div class="text-muted text-xs">⏰ ${escapeHTML(timeStr)}</div>
+          ${e.location ? `<div class="text-muted text-xs">📍 ${escapeHTML(e.location)}</div>` : ''}
+          ${e.meeting_link ? `<div class="text-xs"><a href="${escapeAttr(e.meeting_link)}" target="_blank" rel="noopener" style="color:var(--accent);text-decoration:underline;">Join Meeting</a></div>` : ''}
+          ${e.description ? `<div class="text-muted text-xs capitalize" style="margin-top:4px;">${escapeHTML(e.description)}</div>` : ''}
         </div>${editBtn}</div>`;
     });
     lvs.forEach(l => {
@@ -2978,9 +3013,26 @@ function showCalDetail(dateStr, evs, lvs, att) {
 function openEventModal(id, event) {
   document.getElementById('ev-id').value    = id || '';
   document.getElementById('ev-title').value = event?.title || '';
-  document.getElementById('ev-date').value  = event?.date  || todayISO();
   document.getElementById('ev-desc').value  = event?.description || '';
   document.getElementById('ev-type').value  = event?.type  || 'company';
+  document.getElementById('ev-location').value = event?.location || '';
+  document.getElementById('ev-link').value     = event?.meeting_link || '';
+  document.getElementById('ev-timezone').value = event?.timezone || 'Asia/Singapore';
+
+  // Date/Time split
+  const now = new Date();
+  const defaultStart = todayISO() + 'T09:00';
+  const defaultEnd   = todayISO() + 'T10:00';
+  
+  const sTime = event?.start_time || defaultStart;
+  const eTime = event?.end_time   || defaultEnd;
+
+  document.getElementById('ev-start-date').value = sTime.slice(0, 10);
+  document.getElementById('ev-start-time').value = sTime.length > 10 ? sTime.slice(11, 16) : '09:00';
+  
+  document.getElementById('ev-end-date').value   = eTime.slice(0, 10);
+  document.getElementById('ev-end-time').value   = eTime.length > 10 ? eTime.slice(11, 16) : '10:00';
+
   document.getElementById('event-modal-title').textContent = id ? 'Edit Event' : 'Add Event';
   document.getElementById('ev-delete-btn').style.display = id ? '' : 'none';
   openModal('modal-event');
@@ -2992,16 +3044,23 @@ function openEventModalForDate(dateStr) {
 async function doSaveEvent(btn) {
   const id      = document.getElementById('ev-id').value;
   const title   = document.getElementById('ev-title').value.trim();
-  const dateVal = document.getElementById('ev-date').value;
+  const sDate   = document.getElementById('ev-start-date').value;
+  const sTime   = document.getElementById('ev-start-time').value;
+  const eDate   = document.getElementById('ev-end-date').value;
+  const eTime   = document.getElementById('ev-end-time').value;
 
   if (!title)   return showToast('Event title is required', 'error');
-  if (!dateVal) return showToast('Event date is required', 'error');
+  if (!sDate || !sTime) return showToast('Start date and time are required', 'error');
+  if (!eDate || !eTime) return showToast('End date and time are required', 'error');
 
   const payload = {
     title,
-    start_time:  dateVal,
-    end_time:    dateVal,
-    description: document.getElementById('ev-desc').value
+    start_time:  `${sDate}T${sTime}:00`,
+    end_time:    `${eDate}T${eTime}:00`,
+    description: document.getElementById('ev-desc').value,
+    location:    document.getElementById('ev-location').value,
+    meeting_link: document.getElementById('ev-link').value,
+    timezone:    document.getElementById('ev-timezone').value
   };
 
   if (btn) { btn.disabled = true; btn.classList.add('loading'); }
