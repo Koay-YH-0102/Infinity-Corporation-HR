@@ -195,12 +195,14 @@ button:disabled { opacity: .6; cursor: not-allowed; }
     <form id="login-form" onsubmit="doLogin(event)">
       <div class="form-group">
         <label for="li-identifier">Email or Employee ID</label>
-        <input type="text" id="li-identifier" autocomplete="username" required autofocus>
+        <!-- Added name="username" -->
+        <input type="text" id="li-identifier" name="username" autocomplete="username" required autofocus>
       </div>
       <div class="form-group">
         <label for="li-password">Password</label>
         <div class="pw-wrap">
-          <input type="password" id="li-password" autocomplete="current-password" required>
+          <!-- Added name="password" -->
+          <input type="password" id="li-password" name="password" autocomplete="current-password" required>
           <button type="button" class="pw-toggle" onclick="togglePw('li-password', this)" aria-label="Show password">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
@@ -208,7 +210,8 @@ button:disabled { opacity: .6; cursor: not-allowed; }
       </div>
       <div class="form-group">
         <label for="li-org">Organisation Code</label>
-        <input type="text" id="li-org" autocomplete="organization" required>
+        <!-- Added name="orgCode", changed autocomplete to off so it doesn't confuse the browser -->
+        <input type="text" id="li-org" name="orgCode" autocomplete="off" required>
       </div>
       <button type="submit" id="li-submit">Sign in</button>
     </form>
@@ -293,6 +296,16 @@ async function doLogin(e) {
     localStorage.setItem('orgCode', json.orgCode);
     localStorage.setItem('role',    json.role);
     localStorage.setItem('name',    json.name || json.userId);
+
+    // Hack to force the browser to recognize the successful form submission
+    const form = document.getElementById('login-form');
+    if (form) {
+      // Create a hidden input to satisfy the browser's form submission requirement
+      const hidden = document.createElement('input');
+      hidden.type = 'hidden';
+      hidden.name = 'submit_success';
+      form.appendChild(hidden);
+    }
 
     window.location.href = 'index.html';
   } catch (err) {
